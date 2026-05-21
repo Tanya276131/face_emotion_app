@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <video id="video" width="640" height="480" autoplay></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Access the webcam
+        navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+            video.srcObject = stream;
+        });
+
+        // Send frame to API every 500ms
+        setInterval(async () => {
+            ctx.drawImage(video, 0, 0, 640, 480);
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('file', blob, 'frame.jpg');
+
+                const response = await fetch('http://127.0.0.1:8000/detect', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                drawDetections(data.detections);
+            }, 'image/jpeg');
+        }, 500);
+
+        function drawDetections(detections) {
+            // Clear previous boxes
+            ctx.clearRect(0, 0, 640, 480);
+            ctx.drawImage(video, 0, 0, 640, 480);
+            
+            // Draw new boxes
+            detections.forEach(d => {
+                ctx.strokeStyle = 'red';
+                ctx.strokeRect(d.x1, d.y1, d.x2 - d.x1, d.y2 - d.y1);
+                ctx.fillText(`Class: ${d.class}`, d.x1, d.y1 - 5);
+            });
+        }
+    </script>
+</body>
+</html>
